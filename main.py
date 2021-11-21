@@ -78,6 +78,9 @@ def main():
     try:
         arg = sys.argv[1].strip().lower()
         lock_file = os.path.join(script_dir, "main.lock")
+        lock_file_2 = os.path.join(os.environ.get('temp'),
+                                   'WSL2Hosts',
+                                   "main.lock")
         
         if arg == "start":
             if os.path.isfile(lock_file):
@@ -87,7 +90,12 @@ def main():
         
         elif arg == "stop":
             try:
-                os.remove(lock_file)
+                if os.path.isfile(lock_file):
+                    os.remove(lock_file)
+                elif os.path.isfile(lock_file_2):
+                    os.remove(lock_file_2)
+                else:
+                    raise FileNotFoundError
             except FileNotFoundError:
                 print("Not started yet")
         

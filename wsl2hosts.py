@@ -27,25 +27,25 @@ content_line_pattern = (
     r"(?:(?:2(?:[0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9])))\b\W+([\w.]+)")
 this_file_dir = pathlib.Path(__file__).parent.resolve()
 hosts_location = "C:\\Windows\\System32\\drivers\\etc\\hosts"
-
-# ? Uncomment the following line to use the test file inside "test" folder
-# hosts_location = f"{this_file_dir}\\test\\hosts"
+lock_location = os.path.join(os.environ.get("temp"), "WSL2Hosts")
+if os.environ.get("temp"):
+    if not os.path.isdir(lock_location):
+        os.makedirs(lock_location, exist_ok=True)
+    lock_file = os.path.join(lock_location, "main.lock")
+else:
+    lock_file = os.path.join(this_file_dir, "main.lock")
 
 
 class Wsl2Hosts:
-    def __init__(
-            self
-            ):
+    def __init__(self):
         self.domain = None
         self.delay = None
         self.ip_addr = None
         self.notif = None
         self.content_line = None
         self.get_wsl_ip()
-    
     def __str__(self):
         return self.domain
-
     def get_wsl_ip(self):
         ip_addr = os.popen("wsl hostname -I")
         self.ip_addr = ip_addr.read().strip()
@@ -53,7 +53,7 @@ class Wsl2Hosts:
             notifier.show_toast(
                 "WSL2Hosts: Get WSL IP Address",
                 f"Success: {self.ip_addr}")
-    
+
     def write_hosts(self):
         self.content_line = content_line.format(self.ip_addr, self.domain)
         with open(hosts_location, "r") as hosts_file:
@@ -66,8 +66,7 @@ class Wsl2Hosts:
             if line_match and (
                     line_match[1] == self.ip_addr
                     and
-                    line_match[2] == self.domain
-                    ):
+                    line_match[2] == self.domain):
                 if self.notif == "noisy":
                     notifier.show_toast(
                         "WSL2Hosts: Skip write",
@@ -82,12 +81,12 @@ class Wsl2Hosts:
             notifier.show_toast(
                 "WSL2Hosts: Write to hosts",
                 f"Line: {self.content_line}")
-    
+
     def read_config(self):
         config_file = os.path.join(this_file_dir, "config.ini")
         config = configparser.ConfigParser()
         if not os.path.isfile(config_file):
-            with open("config.ini", "w") as config_file:
+            with open(config_file, "w") as config_file:
                 config_file.write(default_config)
         config.read(config_file)
         config.base = config["base"]
@@ -101,20 +100,20 @@ class Wsl2Hosts:
                 "WSL2Hosts: Read config",
                 f"Success:\ndomain = \"{self.domain}\"\n"
                 "delay = \"{self.delay}\"\nnotif = \"{self.notif}\"")
-    
+
     def run(self):
         self.read_config()
-        run = os.path.isfile(os.path.join(this_file_dir, "main.lock"))
+        run = os.path.isfile(lock_file)
         if not run:
-            with open("main.lock", "w") as lock_file:
-                lock_file.write("running")
+            with open(lock_file, "w") as file:
+                file.write("running")
             run = True
         if self.notif != "silent":
             notifier.show_toast(
                 "WSL2Hosts: Started",
                 f"Target: {hosts_location}")
         while run:
-            run = os.path.isfile(os.path.join(this_file_dir, "main.lock"))
+            run = os.path.isfile(lock_file)
             if not run:
                 if self.notif != "silent":
                     notifier.show_toast(
